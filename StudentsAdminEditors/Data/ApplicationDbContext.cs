@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using StudentsAdminEditors.Models;
 
 namespace StudentsAdminEditors.Data
 {
@@ -9,5 +10,7 @@ namespace StudentsAdminEditors.Data
             : base(options)
         {
         }
+
+        public DbSet<Student> Students { get; set; }
     }
 }
