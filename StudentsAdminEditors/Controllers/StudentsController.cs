@@ -2,30 +2,34 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp.Formats.Tiff.Constants;
 using StudentsAdminEditors.Data;
 using StudentsAdminEditors.Interfaces;
 using StudentsAdminEditors.Models;
+using StudentsAdminEditors.ViewModels;
 
 namespace StudentsAdminEditors.Controllers
 {
     public class StudentsController : Controller
     {
         private readonly IRepository<Student> _repository;
-        //private readonly ApplicationDbContext _context;
+        private readonly IImageService _imageService;
+        private readonly IMapper _mapper;
 
-        public StudentsController(IRepository<Student> repository)
+        public StudentsController(
+            IRepository<Student> repository, 
+            IImageService imageService, 
+            IMapper mapper)
+
         {
             _repository = repository;
+            _imageService=imageService;
+            _mapper = mapper;
         }
-
-        //public StudentsController(ApplicationDbContext context)
-        //{
-        //    _context = context;
-        //}
-
 
 
         // GET: Students
@@ -33,18 +37,12 @@ namespace StudentsAdminEditors.Controllers
         {
             var students = await _repository.GetAllAsync();
             return View(students);
-        }
-
-        //public async Task<IActionResult> Index()
-        //{
-        //    var students = await _context.Students.ToListAsync();
-        //    return View(students);
-        //}
+        }        
 
         // GET: Students/Create
         public IActionResult Create()
         {
-            return View();
+            return View(new StudentViewModel());
         }
 
         // POST: Students/Create
@@ -52,27 +50,26 @@ namespace StudentsAdminEditors.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,Email,PhotoPath")] Student student)
+        public async Task<IActionResult> Create(StudentViewModel viewModel)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                await _repository.AddAsync(student);
-                await _repository.SaveAsync();
-                return RedirectToAction(nameof(Index));
+                return View(viewModel);
             }
-            return View(student);
-        }
 
-        //public async Task<IActionResult> Create([Bind("Id,Name,Email,PhotoPath")] Student student)
-        //{
-        //    if (ModelState.IsValid)
-        //    {
-        //        _context.Add(student);
-        //        await _context.SaveChangesAsync();
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    return View(student);
-        //}
+            var student = _mapper.Map<Student>(viewModel);
+
+            if(viewModel.Photo != null)
+            {
+                var photoPath = await _imageService.SaveImageAsync(viewModel.Photo);
+                student.PhotoPath = photoPath;
+            }
+
+            await _repository.AddAsync(student);
+            await _repository.SaveAsync();
+
+            return RedirectToAction(nameof(Index));            
+        }        
 
         // GET: Students/Edit/5
         public async Task<IActionResult> Edit(int? id)
@@ -87,7 +84,9 @@ namespace StudentsAdminEditors.Controllers
             {
                 return NotFound();
             }
-            return View(student);
+
+            var viewModel = _mapper.Map<StudentViewModel>(student);
+            return View(viewModel);
         }
 
         // POST: Students/Edit/5
@@ -95,35 +94,37 @@ namespace StudentsAdminEditors.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Email,PhotoPath")] Student student)
+        public async Task<IActionResult> Edit(StudentViewModel viewModel)
         {
-            if (id != student.Id)
+            if (!ModelState.IsValid)
             {
+                return View(viewModel);
+            }
+
+            var studentToUpdate = await _repository.GetByIdAsync(viewModel.Id.Value);
+            if (studentToUpdate == null)
+            {                
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            // Update model fields from the ViewModel
+            _mapper.Map(viewModel, studentToUpdate);
+
+            // Update photo if a new photo is uploaded
+            if (viewModel.Photo!= null)
             {
-                try
-                {
-                    _repository.Update(student);
-                    await _repository.SaveAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    var exists = await _repository.GetByIdAsync(student.Id);
-                    if (exists == null)
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
+                // Delete the old photo
+                _imageService.DeleteImage(studentToUpdate.PhotoPath);
+
+                // Save the new one
+                var newPhotoPath = await _imageService.SaveImageAsync(viewModel.Photo);
+                studentToUpdate.PhotoPath = newPhotoPath;
             }
-            return View(student);
+
+            _repository.Update(studentToUpdate);
+            await _repository.SaveAsync();
+
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Students/Delete/5
@@ -152,6 +153,9 @@ namespace StudentsAdminEditors.Controllers
             var student = await _repository.GetByIdAsync(id);
             if (student != null)
             {
+                // Delete the photo before deleting the
+                _imageService.DeleteImage(student.PhotoPath);
+
                 _repository.Delete(student);
                 await _repository.SaveAsync();
             }

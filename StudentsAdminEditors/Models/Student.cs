@@ -12,6 +12,7 @@ namespace StudentsAdminEditors.Models
         [Required, EmailAddress]
         public string Email { get; set; }
 
+        [Display(Name = "Photo")]
         public string? PhotoPath { get; set; }
 
     }

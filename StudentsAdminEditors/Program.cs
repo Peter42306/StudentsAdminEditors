@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StudentsAdminEditors.Data;
 using StudentsAdminEditors.Interfaces;
+using StudentsAdminEditors.Mappings;
 using StudentsAdminEditors.Services;
 
 namespace StudentsAdminEditors
@@ -24,6 +25,8 @@ namespace StudentsAdminEditors
             builder.Services.AddControllersWithViews();
 
             builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+            builder.Services.AddScoped<IImageService, ImageService>();
+            builder.Services.AddAutoMapper(typeof(MappingProfile));
 
             var app = builder.Build();
 
