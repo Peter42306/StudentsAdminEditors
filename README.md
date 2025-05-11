@@ -2,7 +2,7 @@
 
 Template with authentication, role-based access (Admin/User), entity CRUD (Student), view models, image upload (IImageService), clean architecture (IRepository, AutoMapper), and SQLite database.
 
-Features
+## Features
 
 - Authentication and authorization using ASP.NET Core Identity
 - Role-based access: Admin and User
