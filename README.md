@@ -6,6 +6,7 @@ Template with authentication, role-based access (Admin/User), entity CRUD (Stude
 
 - Authentication and authorization using ASP.NET Core Identity
 - Role-based access: Admin and User
+- Simple Admin Panel
 - CRUD operations for the Student entity
 - Image upload and deletion via IImageService
 - Use of ViewModels and AutoMapper for separation of concerns
