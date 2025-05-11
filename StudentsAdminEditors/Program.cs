@@ -3,13 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using StudentsAdminEditors.Data;
 using StudentsAdminEditors.Interfaces;
 using StudentsAdminEditors.Mappings;
+using StudentsAdminEditors.Models;
 using StudentsAdminEditors.Services;
 
 namespace StudentsAdminEditors
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +20,8 @@ namespace StudentsAdminEditors
                 options.UseSqlite(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-            builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+            builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
             
             builder.Services.AddControllersWithViews();
@@ -28,7 +30,20 @@ namespace StudentsAdminEditors
             builder.Services.AddScoped<IImageService, ImageService>();
             builder.Services.AddAutoMapper(typeof(MappingProfile));
 
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                options.LoginPath = "/Identity/Account/Login";
+                options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+            });
+
             var app = builder.Build();
+
+            // Apply migrations and seed admin roles/users
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                await DbInitializer.InitializeAsync(services);
+            }
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -46,7 +61,6 @@ namespace StudentsAdminEditors
             app.UseStaticFiles();
 
             app.UseRouting();
-
             app.UseAuthorization();
 
             app.MapControllerRoute(

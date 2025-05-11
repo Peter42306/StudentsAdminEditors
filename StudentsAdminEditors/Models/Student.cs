@@ -15,5 +15,8 @@ namespace StudentsAdminEditors.Models
         [Display(Name = "Photo")]
         public string? PhotoPath { get; set; }
 
+        public string UserId { get; set; } = default!;
+        public ApplicationUser User { get; set; } = default!;
+
     }
 }

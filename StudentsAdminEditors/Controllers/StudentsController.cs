@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -14,31 +16,50 @@ using StudentsAdminEditors.ViewModels;
 
 namespace StudentsAdminEditors.Controllers
 {
+    [Authorize]
     public class StudentsController : Controller
     {
         private readonly IRepository<Student> _repository;
         private readonly IImageService _imageService;
         private readonly IMapper _mapper;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public StudentsController(
             IRepository<Student> repository, 
             IImageService imageService, 
-            IMapper mapper)
+            IMapper mapper, 
+            UserManager<ApplicationUser> userManager
+            )            
 
         {
             _repository = repository;
-            _imageService=imageService;
+            _imageService = imageService;
             _mapper = mapper;
+            _userManager = userManager;
         }
 
-
-        // GET: Students
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        // GET: Students        
         public async Task<IActionResult> Index()
         {
-            var students = await _repository.GetAllAsync();
-            return View(students);
+            var currentUser = await _userManager.GetUserAsync(User);
+            var allStudents = await _repository.GetAllAsync();
+
+            if (!User.IsInRole("Admin"))
+            {
+                allStudents = allStudents.Where(s => s.UserId == currentUser.Id).ToList();
+            }
+
+            return View(allStudents);
         }        
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         // GET: Students/Create
         public IActionResult Create()
         {
@@ -65,6 +86,9 @@ namespace StudentsAdminEditors.Controllers
                 student.PhotoPath = photoPath;
             }
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            student.UserId = currentUser.Id;
+
             await _repository.AddAsync(student);
             await _repository.SaveAsync();
 
@@ -83,6 +107,12 @@ namespace StudentsAdminEditors.Controllers
             if (student == null)
             {
                 return NotFound();
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (!User.IsInRole("Admin") && student.UserId !=currentUser.Id)
+            {
+                return Forbid();
             }
 
             var viewModel = _mapper.Map<StudentViewModel>(student);
@@ -135,11 +165,16 @@ namespace StudentsAdminEditors.Controllers
                 return NotFound();
             }
 
-            var student = await _repository.GetByIdAsync(id.Value);                
-                
+            var student = await _repository.GetByIdAsync(id.Value);                                
             if (student == null)
             {
                 return NotFound();
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            if(!User.IsInRole("Admin") && student.UserId != currentUser.Id)
+            {
+                return Forbid();
             }
 
             return View(student);
@@ -151,14 +186,25 @@ namespace StudentsAdminEditors.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var student = await _repository.GetByIdAsync(id);
-            if (student != null)
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if (student == null)
             {
-                // Delete the photo before deleting the
+                return NotFound();
+            }
+            else
+            {
+                if (!User.IsInRole("Admin") && student.UserId != currentUser.Id)
+                {
+                    return Forbid();
+                }
+
+                // Delete the photo before deleting
                 _imageService.DeleteImage(student.PhotoPath);
 
                 _repository.Delete(student);
                 await _repository.SaveAsync();
-            }
+            }            
             
             return RedirectToAction(nameof(Index));
         }
@@ -175,6 +221,13 @@ namespace StudentsAdminEditors.Controllers
             if (student == null)
             {
                 return NotFound();
+            }
+
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if(!User.IsInRole("Admin") && student.UserId !=currentUser.Id)
+            {
+                return Forbid();
             }
 
             return View(student);
